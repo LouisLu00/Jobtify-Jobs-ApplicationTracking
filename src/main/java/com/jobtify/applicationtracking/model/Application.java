@@ -11,14 +11,20 @@ import java.time.LocalDateTime;
  */
 
 @Entity
-@Table(name = "Application")
+@Table(name = "application")
 @Data
 public class Application {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long applicationId;
 
+    private Long userId;
+    private Long jobId;
+
     private LocalDateTime timeOfApplication;
+
+    @Column(nullable = false)
     private String applicationStatus;
 
+    private String notes;
 }

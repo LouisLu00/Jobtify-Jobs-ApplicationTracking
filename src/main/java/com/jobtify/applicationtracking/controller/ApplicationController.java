@@ -2,11 +2,11 @@ package com.jobtify.applicationtracking.controller;
 
 import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.service.ApplicationService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -15,25 +15,54 @@ import java.util.List;
  */
 
 @RestController
-@RequestMapping("/api/user")
+@RequestMapping("/api/application")
 public class ApplicationController {
-    @Autowired
-    private ApplicationService applicationService;
+    private final ApplicationService applicationService;
 
-    @GetMapping("/{userId}/applications")
-    public List<Application> getUserApplications(@PathVariable Long userId) {
-        return applicationService.getApplicationsByUserId(userId);
+    // Insert by constructor
+    public ApplicationController(ApplicationService applicationService) {
+        this.applicationService = applicationService;
     }
 
-    @PostMapping("/{userId}/applications")
-    public ResponseEntity<Application> createApplication(@PathVariable Long userId, @RequestBody Application application) {
-        Application createApplication = applicationService.createApplication(userId, application);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createApplication);
+    // GET: get all application by user_id
+    @GetMapping("/user/{userId}/applications")
+    public ResponseEntity<List<Application>> getApplicationsByUserId(@PathVariable Long userId) {
+        List<Application> applications = applicationService.getApplicationsByUserId(userId);
+        return ResponseEntity.ok(applications);
     }
 
+    // GET: get all application by job_id
+    @GetMapping("/job/{jobId}/applications")
+    public ResponseEntity<List<Application>> getApplicationsByJobId(@PathVariable Long jobId) {
+        List<Application> applications = applicationService.getApplicationsByJobId(jobId);
+        return ResponseEntity.ok(applications);
+    }
+
+    // POST: create new application
+    @PostMapping("/{userId}/{jobId}/applications")
+    public ResponseEntity<Application> createApplication(
+            @PathVariable Long userId,
+            @PathVariable Long jobId,
+            @RequestBody Application application) {
+        Application createdApplication = applicationService.createApplication(userId, jobId, application);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
+    }
+
+    // PUT: update an application
     @PutMapping("/applications/{applicationId}")
-    public ResponseEntity<Application> updateApplication(@PathVariable Long applicationId, @RequestParam String status) {
-        Application updatedApplication = applicationService.updateApplicationStatus(applicationId, status);
+    public ResponseEntity<Application> updateApplication(
+            @PathVariable Long applicationId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String notes,
+            @RequestParam(required = false) LocalDateTime timeOfApplication) {
+        Application updatedApplication = applicationService.updateApplication(applicationId, status, notes, timeOfApplication);
         return ResponseEntity.ok(updatedApplication);
+    }
+
+    // 删除申请
+    @DeleteMapping("/applications/{applicationId}")
+    public ResponseEntity<Void> deleteApplication(@PathVariable Long applicationId) {
+        applicationService.deleteApplication(applicationId);
+        return ResponseEntity.noContent().build();
     }
 }

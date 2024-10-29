@@ -1,13 +1,10 @@
 package com.jobtify.applicationtracking.service;
 
 import com.jobtify.applicationtracking.model.Application;
-import com.jobtify.applicationtracking.model.UserApplied;
 import com.jobtify.applicationtracking.repository.ApplicationRepository;
-import com.jobtify.applicationtracking.repository.UserAppliedRepository;
-import com.jobtify.applicationtracking.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -17,42 +14,46 @@ import java.util.List;
 
 @Service
 public class ApplicationService {
-    @Autowired
-    private ApplicationRepository applicationRepository;
 
-    @Autowired
-    private UserAppliedRepository userAppliedRepository;
+    private final ApplicationRepository applicationRepository;
 
-    @Autowired
-    private UserRepository userRepository;
+    // Insert by Constructor
+    public ApplicationService(ApplicationRepository applicationRepository) {
+        this.applicationRepository = applicationRepository;
+    }
 
+    // POST: Create new application
+    public Application createApplication(Long userId, Long jobId, Application application) {
+        application.setUserId(userId);
+        application.setJobId(jobId);
+        return applicationRepository.save(application);
+    }
+
+    // PUT: update application
+    public Application updateApplication(Long applicationId, String status, String notes, LocalDateTime timeOfApplication) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found"));
+        if (status != null) application.setApplicationStatus(status);
+        if (notes != null) application.setNotes(notes);
+        if (timeOfApplication != null) application.setTimeOfApplication(timeOfApplication);
+        return applicationRepository.save(application);
+    }
+
+    // GET: get all application by user_id
     public List<Application> getApplicationsByUserId(Long userId) {
         return applicationRepository.findByUserId(userId);
     }
 
-    public Long getJobIdByApplicationId(Long applicationId) {
-        return applicationRepository.findJobIdByApplicationId(applicationId);
+    // GET: get all application by job_id
+    public List<Application> getApplicationsByJobId(Long jobId) {
+        return applicationRepository.findByJobId(jobId);
     }
 
-    public Application createApplication(Long userId, Application application) {
-        Application savedApplication = applicationRepository.save(application);
-
-        UserApplied userApplied = new UserApplied();
-        UserApplied.UserAppliedKey userAppliedKey = new UserApplied.UserAppliedKey(userId, savedApplication.getApplicationId());
-
-        userApplied.setId(userAppliedKey);
-        userApplied.setUser(userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found")));
-        userApplied.setApplication(savedApplication);
-
-        userAppliedRepository.save(userApplied);
-
-        return savedApplication;
-    }
-
-    public Application updateApplicationStatus(Long applicationId, String status) {
-        Application application = applicationRepository.findById(applicationId).orElseThrow(() -> new RuntimeException("Application Not found"));
-        application.setApplicationStatus(status);
-        return applicationRepository.save(application);
+    // Delete an application
+    public void deleteApplication(Long applicationId) {
+        if (!applicationRepository.existsById(applicationId)) {
+            throw new RuntimeException("Application not found");
+        }
+        applicationRepository.deleteById(applicationId);
     }
 }
