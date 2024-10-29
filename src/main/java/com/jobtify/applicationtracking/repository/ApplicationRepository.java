@@ -13,4 +13,7 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     List<Application> findByUserId(Long userId);
 
     List<Application> findByJobId(Long jobId);
+
+    List<Application> findByUserIdAndApplicationStatus(Long userId, String status);
+    List<Application> findByJobIdAndApplicationStatus(Long jobId, String status);
 }

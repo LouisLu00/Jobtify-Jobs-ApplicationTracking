@@ -1,16 +1,46 @@
-# No UPPER CASE IN DATABASE!!!
+# Jobtify-ApplicationTracking
 
-# 1. Use
-Synchronize Maven
+## Endpoints
+***
+### Underline means OPTIONAL
+### Get all application by user_id
+* URL: /api/application/user/{userId}/applications<u>?status={status}</u>
+* Method: GET
+* Response Codes:
+    * 200 OK
+    * 404 Not Found
 
-# 2. Test
-Default port: http://localhost:8080
+### Get all applications by job_id
+* URL: /api/application/job/{jobId}/applications<u>?status={status}</u>
+* Method: GET
+* Response Codes:
+    * 200 OK
+    * 404 Not Found
 
-## User Login
-POST /api/user/login
+### Create a new application
+* URL: /api/application/{userId}/{jobId}/applications
+* Method: POST
+* Request body:
+  {
+  "timeOfApplication": "2024-10-28T10:30:00",
+  "applicationStatus": "applied",
+  "notes": "This is a new application"
+  }
+* Response Codes:
+    * 201 Application created successfully
+    * 404 Invalid Input
 
-## Get user's application
-GET /api/user/{userId}/applications
+### Update an existing application
+* URL: /api/application/applications/{applicationId}
+* Method: PUT
+* Request Params: /api/application/applications/{applicationId}<u>?status={status}</u>&<u>notes={notes}</u>&<u>timeOfApplication={timeOfApplication}</u>
+* Response Codes:
+    * 200 Application updated successfully
+    * 404 Application not found
 
-## Get Application detail 
-GET /api/application/{applicationId}/job
+### Delete an application by ID
+* URL: /api/application/applications/{applicationId}
+* Method: DELETE
+* Response Codes:
+    * 200 OK
+    * 404 Not Found

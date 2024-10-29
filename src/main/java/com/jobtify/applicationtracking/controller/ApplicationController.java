@@ -2,6 +2,9 @@ package com.jobtify.applicationtracking.controller;
 
 import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.service.ApplicationService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,21 +27,37 @@ public class ApplicationController {
         this.applicationService = applicationService;
     }
 
-    // GET: get all application by user_id
+    @Operation(summary = "Get all applications by user ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved applications"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
     @GetMapping("/user/{userId}/applications")
-    public ResponseEntity<List<Application>> getApplicationsByUserId(@PathVariable Long userId) {
-        List<Application> applications = applicationService.getApplicationsByUserId(userId);
+    public ResponseEntity<List<Application>> getApplicationsByUserId(
+            @PathVariable Long userId,
+            @RequestParam(required = false) String status) {
+        List<Application> applications = applicationService.getApplicationsByUserId(userId, status);
         return ResponseEntity.ok(applications);
     }
 
-    // GET: get all application by job_id
+    @Operation(summary = "Get all applications by job ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved applications"),
+            @ApiResponse(responseCode = "404", description = "Job not found")
+    })
     @GetMapping("/job/{jobId}/applications")
-    public ResponseEntity<List<Application>> getApplicationsByJobId(@PathVariable Long jobId) {
-        List<Application> applications = applicationService.getApplicationsByJobId(jobId);
+    public ResponseEntity<List<Application>> getApplicationsByJobId(
+            @PathVariable Long jobId,
+            @RequestParam(required = false) String status) {
+        List<Application> applications = applicationService.getApplicationsByJobId(jobId, status);
         return ResponseEntity.ok(applications);
     }
 
-    // POST: create new application
+    @Operation(summary = "Create a new application")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Application created successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid input")
+    })
     @PostMapping("/{userId}/{jobId}/applications")
     public ResponseEntity<Application> createApplication(
             @PathVariable Long userId,
@@ -48,7 +67,11 @@ public class ApplicationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
     }
 
-    // PUT: update an application
+    @Operation(summary = "Update an existing application")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Application updated successfully"),
+            @ApiResponse(responseCode = "404", description = "Application not found")
+    })
     @PutMapping("/applications/{applicationId}")
     public ResponseEntity<Application> updateApplication(
             @PathVariable Long applicationId,
@@ -59,7 +82,11 @@ public class ApplicationController {
         return ResponseEntity.ok(updatedApplication);
     }
 
-    // 删除申请
+    @Operation(summary = "Delete an application by ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Application deleted successfully"),
+            @ApiResponse(responseCode = "404", description = "Application not found")
+    })
     @DeleteMapping("/applications/{applicationId}")
     public ResponseEntity<Void> deleteApplication(@PathVariable Long applicationId) {
         applicationService.deleteApplication(applicationId);

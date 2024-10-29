@@ -40,12 +40,18 @@ public class ApplicationService {
     }
 
     // GET: get all application by user_id
-    public List<Application> getApplicationsByUserId(Long userId) {
+    public List<Application> getApplicationsByUserId(Long userId, String status) {
+        if (status != null) {
+            return applicationRepository.findByUserIdAndApplicationStatus(userId, status);
+        }
         return applicationRepository.findByUserId(userId);
     }
 
     // GET: get all application by job_id
-    public List<Application> getApplicationsByJobId(Long jobId) {
+    public List<Application> getApplicationsByJobId(Long jobId, String status) {
+        if (status != null) {
+            return applicationRepository.findByJobIdAndApplicationStatus(jobId, status);
+        }
         return applicationRepository.findByJobId(jobId);
     }
 
