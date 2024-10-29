@@ -3,9 +3,12 @@ package com.jobtify.applicationtracking.service;
 import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.repository.ApplicationRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Ziyang Su
@@ -16,14 +19,31 @@ import java.util.List;
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
+    private final RestTemplate restTemplate;
+    private final WebClient.Builder webClientBuilder;
 
     // Insert by Constructor
-    public ApplicationService(ApplicationRepository applicationRepository) {
+    public ApplicationService(ApplicationRepository applicationRepository, RestTemplate restTemplate, WebClient.Builder webClientBuilder) {
         this.applicationRepository = applicationRepository;
+        this.restTemplate = restTemplate;
+        this.webClientBuilder = webClientBuilder;
     }
 
     // POST: Create new application
     public Application createApplication(Long userId, Long jobId, Application application) {
+//        validateUser(userId);
+//
+//        CompletableFuture<Boolean> jobValidationFuture = validateJobAsync(jobId);
+//        Boolean jobExists;
+//        try {
+//            jobExists = jobValidationFuture.get();
+//        } catch (Exception e) {
+//            throw new RuntimeException("Error validating Job ID: " + jobId, e);
+//        }
+//        if (!jobExists) {
+//            throw new RuntimeException("Job with ID " + jobId + " not found.");
+//        }
+
         application.setUserId(userId);
         application.setJobId(jobId);
         return applicationRepository.save(application);
@@ -61,5 +81,23 @@ public class ApplicationService {
             throw new RuntimeException("Application not found");
         }
         applicationRepository.deleteById(applicationId);
+    }
+
+    public void validateUser(Long userId) {
+        String userUrl = "http://user-service/api/users/" + userId + "/exists";
+        Boolean userExists = restTemplate.getForObject(userUrl, Boolean.class);
+        if (userExists == null || !userExists) {
+            throw new RuntimeException("User with ID " + userId + " not found.");
+        }
+    }
+
+    public CompletableFuture<Boolean> validateJobAsync(Long jobId) {
+        String jobUrl = "http://job-service/api/jobs/" + jobId + "/exists";
+        return webClientBuilder.build()
+                .get()
+                .uri(jobUrl)
+                .retrieve()
+                .bodyToMono(Boolean.class)
+                .toFuture();
     }
 }
