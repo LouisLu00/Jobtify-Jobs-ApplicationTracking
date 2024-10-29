@@ -3,10 +3,9 @@ package com.jobtify.applicationtracking.controller;
 import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.service.ApplicationService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -24,5 +23,17 @@ public class ApplicationController {
     @GetMapping("/{userId}/applications")
     public List<Application> getUserApplications(@PathVariable Long userId) {
         return applicationService.getApplicationsByUserId(userId);
+    }
+
+    @PostMapping("/{userId}/applications")
+    public ResponseEntity<Application> createApplication(@PathVariable Long userId, @RequestBody Application application) {
+        Application createApplication = applicationService.createApplication(userId, application);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createApplication);
+    }
+
+    @PutMapping("/applications/{applicationId}")
+    public ResponseEntity<Application> updateApplication(@PathVariable Long applicationId, @RequestParam String status) {
+        Application updatedApplication = applicationService.updateApplicationStatus(applicationId, status);
+        return ResponseEntity.ok(updatedApplication);
     }
 }

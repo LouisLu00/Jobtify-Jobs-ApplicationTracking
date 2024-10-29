@@ -27,12 +27,19 @@ public class UserApplied {
     @JoinColumn(name = "application_id")
     private Application application;
 
-}
+    @Embeddable
+    @Data
+    public static class UserAppliedKey implements Serializable {
+        private Long userId;
+        private Long applicationId;
 
-@Embeddable
-@Data
-class UserAppliedKey implements Serializable {
-    private Long userId;
-    private Long applicationId;
+        // 默认构造函数
+        public UserAppliedKey() {}
 
+        // 参数构造函数
+        public UserAppliedKey(Long userId, Long applicationId) {
+            this.userId = userId;
+            this.applicationId = applicationId;
+        }
+    }
 }
