@@ -66,6 +66,9 @@ public class ApplicationController {
         if (!applicationService.validateUser(userId)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
+        if (!applicationService.validateJob(jobId)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
         Application createdApplication = applicationService.createApplication(userId, jobId, application);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
     }

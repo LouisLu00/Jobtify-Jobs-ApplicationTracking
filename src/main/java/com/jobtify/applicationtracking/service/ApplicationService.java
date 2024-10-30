@@ -7,10 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Ziyang Su
@@ -33,21 +33,24 @@ public class ApplicationService {
 
     // POST: Create new application
     public Application createApplication(Long userId, Long jobId, Application application) {
-//
-//        CompletableFuture<Boolean> jobValidationFuture = validateJobAsync(jobId);
-//        Boolean jobExists;
-//        try {
-//            jobExists = jobValidationFuture.get();
-//        } catch (Exception e) {
-//            throw new RuntimeException("Error validating Job ID: " + jobId, e);
-//        }
-//        if (!jobExists) {
-//            throw new RuntimeException("Job with ID " + jobId + " not found.");
-//        }
-
         application.setUserId(userId);
         application.setJobId(jobId);
-        return applicationRepository.save(application);
+        Application createdApplication = applicationRepository.save(application);
+
+        incrementJobApplicantCountAsync(jobId).thenAccept(statusCode -> {
+            if (statusCode == 202) {
+                System.out.println("Applicant count increment accepted for Job ID: " + jobId);
+            } else if (statusCode == 404) {
+                System.out.println("No job found with ID: " + jobId);
+            } else if (statusCode == 500) {
+                System.out.println("Unexpected server error when updating Job ID: " + jobId);
+            }
+        }).exceptionally(ex -> {
+            System.err.println("Failed to increment job applicant count for jobId: " + jobId + ". Error: " + ex.getMessage());
+            return null;
+        });
+
+        return createdApplication;
     }
 
     // PUT: update application
@@ -97,4 +100,29 @@ public class ApplicationService {
         }
     }
 
+    public boolean validateJob(Long jobId) {
+        String jobUrl = "http://54.90.234.55:8080/api/jobs/" + jobId;
+        try {
+            restTemplate.getForObject(jobUrl, Object.class);
+            return true;
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                return false;
+            }
+            throw new RuntimeException("Error validating Job ID: " + jobId, e);
+        }
+    }
+
+    public CompletableFuture<Integer> incrementJobApplicantCountAsync(Long jobId) {
+        String jobUrl = "http://54.90.234.55:8080/api/jobs/async/update/" + jobId;
+
+        return webClientBuilder.build()
+                .post()
+                .uri(jobUrl)
+                .retrieve()
+                .toBodilessEntity()
+                .map(response -> response.getStatusCode().value())
+                .doOnError(ex -> System.err.println("Error incrementing applicant count for Job ID: " + jobId + ". Error: " + ex.getMessage()))
+                .toFuture();
+    }
 }
