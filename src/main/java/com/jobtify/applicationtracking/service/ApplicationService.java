@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +24,12 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final RestTemplate restTemplate;
     private final WebClient.Builder webClientBuilder;
+
+    @Value("${user.service.url}")
+    private String userServiceUrl;
+
+    @Value("${job.service.url}")
+    private String jobServiceUrl;
 
     // Insert by Constructor
     public ApplicationService(ApplicationRepository applicationRepository, RestTemplate restTemplate, WebClient.Builder webClientBuilder) {
@@ -88,26 +95,30 @@ public class ApplicationService {
     }
 
     public boolean validateUser(Long userId) {
-        String userUrl = "http://3.16.10.86:8080/api/users/" + userId + "/exists";
+        String userUrl = userServiceUrl + "/" + userId + "/exists";
         try {
             Boolean userExists = restTemplate.getForObject(userUrl, Boolean.class);
             return userExists != null && userExists;
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return false;
+            } else if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR) {
+                throw new RuntimeException("User service returned 500 error");
             }
             throw new RuntimeException("Error validating User ID: " + userId, e);
         }
     }
 
     public boolean validateJob(Long jobId) {
-        String jobUrl = "http://54.90.234.55:8080/api/jobs/" + jobId;
+        String jobUrl = jobServiceUrl + "/" + jobId;
         try {
             restTemplate.getForObject(jobUrl, Object.class);
             return true;
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 return false;
+            } else if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR) {
+                throw new RuntimeException("Job service returned 500 error");
             }
             throw new RuntimeException("Error validating Job ID: " + jobId, e);
         }

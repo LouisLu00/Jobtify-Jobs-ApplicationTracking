@@ -1,6 +1,7 @@
 package com.jobtify.applicationtracking.controller;
 
 import com.jobtify.applicationtracking.model.Application;
+import com.jobtify.applicationtracking.model.ErrorResponse;
 import com.jobtify.applicationtracking.service.ApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -59,16 +60,39 @@ public class ApplicationController {
             @ApiResponse(responseCode = "400", description = "Invalid input")
     })
     @PostMapping("/{userId}/{jobId}/applications")
-    public ResponseEntity<Application> createApplication(
+    public ResponseEntity<?> createApplication(
             @PathVariable Long userId,
             @PathVariable Long jobId,
             @RequestBody Application application) {
-        if (!applicationService.validateUser(userId)) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+
+        try {
+            if (!applicationService.validateUser(userId)) {
+                String errorMessage = "User with ID " + userId + " not found.";
+                System.err.println(errorMessage);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), errorMessage));
+            }
+        } catch (RuntimeException e) {
+            String errorMessage = "Error connecting to user service: " + e.getMessage();
+            System.err.println(errorMessage);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), errorMessage));
         }
-        if (!applicationService.validateJob(jobId)) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+
+        try {
+            if (!applicationService.validateJob(jobId)) {
+                String errorMessage = "Job with ID " + jobId + " not found.";
+                System.err.println(errorMessage);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), errorMessage));
+            }
+        } catch (RuntimeException e) {
+            String errorMessage = "Error connecting to job service: " + e.getMessage();
+            System.err.println(errorMessage);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), errorMessage));
         }
+
         Application createdApplication = applicationService.createApplication(userId, jobId, application);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
     }
