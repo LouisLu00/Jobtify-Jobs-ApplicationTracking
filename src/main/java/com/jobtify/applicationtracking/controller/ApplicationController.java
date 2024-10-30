@@ -63,6 +63,9 @@ public class ApplicationController {
             @PathVariable Long userId,
             @PathVariable Long jobId,
             @RequestBody Application application) {
+        if (!applicationService.validateUser(userId)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
         Application createdApplication = applicationService.createApplication(userId, jobId, application);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
     }
