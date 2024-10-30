@@ -6,12 +6,16 @@ import com.jobtify.applicationtracking.service.ApplicationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 /**
  * @author Ziyang Su
@@ -38,6 +42,14 @@ public class ApplicationController {
             @PathVariable Long userId,
             @RequestParam(required = false) String status) {
         List<Application> applications = applicationService.getApplicationsByUserId(userId, status);
+
+        List<EntityModel<Application>> applicationModels = applications.stream()
+                .map(application -> EntityModel.of(application,
+                        linkTo(methodOn(ApplicationController.class).getApplicationsByUserId(userId, null)).withRel("userApplications"),
+                        linkTo(methodOn(ApplicationController.class).getApplicationsByJobId(application.getJobId(), null)).withRel("jobApplications")
+                ))
+                .toList();
+
         return ResponseEntity.ok(applications);
     }
 
@@ -51,6 +63,14 @@ public class ApplicationController {
             @PathVariable Long jobId,
             @RequestParam(required = false) String status) {
         List<Application> applications = applicationService.getApplicationsByJobId(jobId, status);
+
+        List<EntityModel<Application>> applicationModels = applications.stream()
+                .map(application -> EntityModel.of(application,
+                        linkTo(methodOn(ApplicationController.class).getApplicationsByUserId(application.getUserId(), null)).withRel("userApplications"),
+                        linkTo(methodOn(ApplicationController.class).getApplicationsByJobId(jobId, null)).withRel("jobApplications")
+                ))
+                .toList();
+
         return ResponseEntity.ok(applications);
     }
 
