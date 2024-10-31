@@ -123,13 +123,20 @@ public class ApplicationController {
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
     @PutMapping("/applications/{applicationId}")
-    public ResponseEntity<Application> updateApplication(
+    public ResponseEntity<?> updateApplication(
             @PathVariable Long applicationId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String notes,
             @RequestParam(required = false) LocalDateTime timeOfApplication) {
-        Application updatedApplication = applicationService.updateApplication(applicationId, status, notes, timeOfApplication);
-        return ResponseEntity.ok(updatedApplication);
+        try {
+            Application updatedApplication = applicationService.updateApplication(applicationId, status, notes, timeOfApplication);
+            return ResponseEntity.ok(updatedApplication);
+        } catch (RuntimeException e) {
+            String errorMessage = e.getMessage().contains("not found") ?
+                    "Application with ID " + applicationId + " not found" : "Server error: " + e.getMessage();
+            HttpStatus httpStatus = errorMessage.contains("not found") ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR;
+            return ResponseEntity.status(httpStatus).body(new ErrorResponse(httpStatus.value(), errorMessage));
+        }
     }
 
     @Operation(summary = "Delete an application by ID")
@@ -138,8 +145,15 @@ public class ApplicationController {
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
     @DeleteMapping("/applications/{applicationId}")
-    public ResponseEntity<Void> deleteApplication(@PathVariable Long applicationId) {
-        applicationService.deleteApplication(applicationId);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> deleteApplication(@PathVariable Long applicationId) {
+        try {
+            applicationService.deleteApplication(applicationId);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            String errorMessage = e.getMessage().contains("not found") ?
+                    "Application with ID " + applicationId + " not found" : "Server error: " + e.getMessage();
+            HttpStatus status = errorMessage.contains("not found") ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR;
+            return ResponseEntity.status(status).body(new ErrorResponse(status.value(), errorMessage));
+        }
     }
 }

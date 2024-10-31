@@ -63,7 +63,7 @@ public class ApplicationService {
     // PUT: update application
     public Application updateApplication(Long applicationId, String status, String notes, LocalDateTime timeOfApplication) {
         Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new RuntimeException("Application not found"));
+                .orElseThrow(() -> new RuntimeException("Application with ID " + applicationId + " not found"));
         if (status != null) application.setApplicationStatus(status);
         if (notes != null) application.setNotes(notes);
         if (timeOfApplication != null) application.setTimeOfApplication(timeOfApplication);
@@ -89,7 +89,7 @@ public class ApplicationService {
     // Delete an application
     public void deleteApplication(Long applicationId) {
         if (!applicationRepository.existsById(applicationId)) {
-            throw new RuntimeException("Application not found");
+            throw new RuntimeException("Application with ID " + applicationId + " not found");
         }
         applicationRepository.deleteById(applicationId);
     }
@@ -125,7 +125,7 @@ public class ApplicationService {
     }
 
     public CompletableFuture<Integer> incrementJobApplicantCountAsync(Long jobId) {
-        String jobUrl = "http://54.90.234.55:8080/api/jobs/async/update/" + jobId;
+        String jobUrl = jobServiceUrl + "/async/update/" + jobId;
 
         return webClientBuilder.build()
                 .post()
