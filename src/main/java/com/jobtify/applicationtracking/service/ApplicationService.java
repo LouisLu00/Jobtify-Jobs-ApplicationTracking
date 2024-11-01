@@ -2,16 +2,12 @@ package com.jobtify.applicationtracking.service;
 
 import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.repository.ApplicationRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Ziyang Su
@@ -22,41 +18,40 @@ import java.util.concurrent.CompletableFuture;
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
-    private final RestTemplate restTemplate;
+    private final ValidationService validationService;
     private final WebClient.Builder webClientBuilder;
-
-    @Value("${user.service.url}")
-    private String userServiceUrl;
 
     @Value("${job.service.url}")
     private String jobServiceUrl;
 
     // Insert by Constructor
-    public ApplicationService(ApplicationRepository applicationRepository, RestTemplate restTemplate, WebClient.Builder webClientBuilder) {
+    public ApplicationService(ApplicationRepository applicationRepository,
+                              ValidationService validationService,
+                              WebClient.Builder webClientBuilder) {
         this.applicationRepository = applicationRepository;
-        this.restTemplate = restTemplate;
+        this.validationService = validationService;
         this.webClientBuilder = webClientBuilder;
     }
 
     // POST: Create new application
     public Application createApplication(Long userId, Long jobId, Application application) {
+        String userError = validationService.validateUser(userId);
+        String jobError = validationService.validateJob(jobId);
+
+        if (userError != null) {
+            throw new RuntimeException(userError);
+        }
+        if (jobError != null) {
+            throw new RuntimeException(jobError);
+        }
+
+        validateApplicationFields(application);
+
         application.setUserId(userId);
         application.setJobId(jobId);
+
         Application createdApplication = applicationRepository.save(application);
-
-        incrementJobApplicantCountAsync(jobId).thenAccept(statusCode -> {
-            if (statusCode == 202) {
-                System.out.println("Applicant count increment accepted for Job ID: " + jobId);
-            } else if (statusCode == 404) {
-                System.out.println("No job found with ID: " + jobId);
-            } else if (statusCode == 500) {
-                System.out.println("Unexpected server error when updating Job ID: " + jobId);
-            }
-        }).exceptionally(ex -> {
-            System.err.println("Failed to increment job applicant count for jobId: " + jobId + ". Error: " + ex.getMessage());
-            return null;
-        });
-
+        incrementJobApplicantCountAsync(jobId);
         return createdApplication;
     }
 
@@ -87,53 +82,54 @@ public class ApplicationService {
     }
 
     // Delete an application
-    public void deleteApplication(Long applicationId) {
+    public boolean deleteApplication(Long applicationId) {
         if (!applicationRepository.existsById(applicationId)) {
-            throw new RuntimeException("Application with ID " + applicationId + " not found");
+            return false;
         }
         applicationRepository.deleteById(applicationId);
+        return true;
     }
 
-    public boolean validateUser(Long userId) {
-        String userUrl = userServiceUrl + "/" + userId + "/exists";
-        try {
-            Boolean userExists = restTemplate.getForObject(userUrl, Boolean.class);
-            return userExists != null && userExists;
-        } catch (HttpClientErrorException e) {
-            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
-                return false;
-            } else if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR) {
-                throw new RuntimeException("User service returned 500 error");
-            }
-            throw new RuntimeException("Error validating User ID: " + userId, e);
-        }
-    }
-
-    public boolean validateJob(Long jobId) {
-        String jobUrl = jobServiceUrl + "/" + jobId;
-        try {
-            restTemplate.getForObject(jobUrl, Object.class);
-            return true;
-        } catch (HttpClientErrorException e) {
-            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
-                return false;
-            } else if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR) {
-                throw new RuntimeException("Job service returned 500 error");
-            }
-            throw new RuntimeException("Error validating Job ID: " + jobId, e);
-        }
-    }
-
-    public CompletableFuture<Integer> incrementJobApplicantCountAsync(Long jobId) {
+    private void incrementJobApplicantCountAsync(Long jobId) {
         String jobUrl = jobServiceUrl + "/async/update/" + jobId;
 
-        return webClientBuilder.build()
+        webClientBuilder.build()
                 .post()
                 .uri(jobUrl)
                 .retrieve()
                 .toBodilessEntity()
-                .map(response -> response.getStatusCode().value())
-                .doOnError(ex -> System.err.println("Error incrementing applicant count for Job ID: " + jobId + ". Error: " + ex.getMessage()))
-                .toFuture();
+                .toFuture()
+                .thenAccept(response -> {
+                    if (response.getStatusCode().is2xxSuccessful()) {
+                        System.out.println("Applicant count increment accepted for Job ID: " + jobId);
+                    } else {
+                        System.out.println("Failed to increment applicant count for Job ID: " + jobId);
+                    }
+                })
+                .exceptionally(ex -> {
+                    System.err.println("Error incrementing applicant count for Job ID: " + jobId + ". Error: " + ex.getMessage());
+                    return null;
+                });
+    }
+
+    private void validateApplicationFields(Application application) {
+        StringBuilder missingFields = new StringBuilder();
+
+        if (application.getApplicationStatus() == null || application.getApplicationStatus().isEmpty()) {
+            missingFields.append("applicationStatus, ");
+        }
+
+        if (application.getTimeOfApplication() == null) {
+            missingFields.append("timeOfApplication, ");
+        }
+
+        if (application.getNotes() == null) {
+            application.setNotes("");
+        }
+
+        if (!missingFields.isEmpty()) {
+            missingFields.setLength(missingFields.length() - 2);
+            throw new IllegalArgumentException("Missing required fields: " + missingFields);
+        }
     }
 }
