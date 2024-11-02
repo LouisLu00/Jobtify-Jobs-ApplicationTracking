@@ -2,9 +2,11 @@ package com.jobtify.applicationtracking.service;
 
 import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.repository.ApplicationRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,7 +20,6 @@ import java.util.List;
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
-    private final ValidationService validationService;
     private final WebClient.Builder webClientBuilder;
 
     @Value("${job.service.url}")
@@ -26,27 +27,13 @@ public class ApplicationService {
 
     // Insert by Constructor
     public ApplicationService(ApplicationRepository applicationRepository,
-                              ValidationService validationService,
                               WebClient.Builder webClientBuilder) {
         this.applicationRepository = applicationRepository;
-        this.validationService = validationService;
         this.webClientBuilder = webClientBuilder;
     }
 
     // POST: Create new application
     public Application createApplication(Long userId, Long jobId, Application application) {
-        String userError = validationService.validateUser(userId);
-        String jobError = validationService.validateJob(jobId);
-
-        if (userError != null) {
-            throw new RuntimeException(userError);
-        }
-        if (jobError != null) {
-            throw new RuntimeException(jobError);
-        }
-
-        validateApplicationFields(application);
-
         application.setUserId(userId);
         application.setJobId(jobId);
 
@@ -58,7 +45,7 @@ public class ApplicationService {
     // PUT: update application
     public Application updateApplication(Long applicationId, String status, String notes, LocalDateTime timeOfApplication) {
         Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new RuntimeException("Application with ID " + applicationId + " not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
         if (status != null) application.setApplicationStatus(status);
         if (notes != null) application.setNotes(notes);
         if (timeOfApplication != null) application.setTimeOfApplication(timeOfApplication);
@@ -82,12 +69,11 @@ public class ApplicationService {
     }
 
     // Delete an application
-    public boolean deleteApplication(Long applicationId) {
+    public void deleteApplication(Long applicationId) {
         if (!applicationRepository.existsById(applicationId)) {
-            return false;
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found");
         }
         applicationRepository.deleteById(applicationId);
-        return true;
     }
 
     private void incrementJobApplicantCountAsync(Long jobId) {
@@ -110,26 +96,5 @@ public class ApplicationService {
                     System.err.println("Error incrementing applicant count for Job ID: " + jobId + ". Error: " + ex.getMessage());
                     return null;
                 });
-    }
-
-    private void validateApplicationFields(Application application) {
-        StringBuilder missingFields = new StringBuilder();
-
-        if (application.getApplicationStatus() == null || application.getApplicationStatus().isEmpty()) {
-            missingFields.append("applicationStatus, ");
-        }
-
-        if (application.getTimeOfApplication() == null) {
-            missingFields.append("timeOfApplication, ");
-        }
-
-        if (application.getNotes() == null) {
-            application.setNotes("");
-        }
-
-        if (!missingFields.isEmpty()) {
-            missingFields.setLength(missingFields.length() - 2);
-            throw new IllegalArgumentException("Missing required fields: " + missingFields);
-        }
     }
 }

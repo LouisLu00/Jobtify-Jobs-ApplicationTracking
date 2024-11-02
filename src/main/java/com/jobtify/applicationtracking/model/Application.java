@@ -1,6 +1,7 @@
 package com.jobtify.applicationtracking.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ public class Application {
 
     private LocalDateTime timeOfApplication;
 
+    @NotNull(message = "Application status cannot be null")
     @Column(nullable = false)
     private String applicationStatus;
 

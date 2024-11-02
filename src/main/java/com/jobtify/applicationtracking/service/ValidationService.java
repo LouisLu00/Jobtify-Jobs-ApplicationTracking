@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * @author Ziyang Su
@@ -24,33 +25,29 @@ public class ValidationService {
         this.restTemplate = restTemplate;
     }
 
-    public String validateUser(Long userId) {
+    public void validateUser(Long userId) {
         String userUrl = userServiceUrl + "/" + userId + "/exists";
         try {
             restTemplate.getForObject(userUrl, Boolean.class);
-            return null;
         } catch (HttpClientErrorException e) {
-            return handleNotFoundOrServerError(e, "User");
+            handleNotFoundOrServerError(e, "User");
         }
     }
 
-
-    public String validateJob(Long jobId) {
+    public void validateJob(Long jobId) {
         String jobUrl = jobServiceUrl + "/" + jobId;
         try {
             restTemplate.getForObject(jobUrl, Object.class);
-            return null;
         } catch (HttpClientErrorException e) {
-            return handleNotFoundOrServerError(e, "Job");
+            handleNotFoundOrServerError(e, "Job");
         }
     }
 
-    private String handleNotFoundOrServerError(HttpClientErrorException e, String entityType) {
+    private void handleNotFoundOrServerError(HttpClientErrorException e, String entityType) {
         if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
-            System.err.println(entityType + " not found.");
-            return entityType + " not found";
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, entityType + " not found");
         } else if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR) {
-            throw new RuntimeException(entityType + " service returned 500 error");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, entityType + " server error");
         }
         throw new RuntimeException("Error validating " + entityType + " ID");
     }
