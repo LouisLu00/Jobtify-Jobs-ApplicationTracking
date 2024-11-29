@@ -68,6 +68,12 @@ public class ApplicationService {
         return applicationRepository.findByJobId(jobId);
     }
 
+    // GET: get application by application_id
+    public List<Application> getApplicationByApplicationId(Long applicationId) {
+        return applicationRepository.findByApplicationId(applicationId);
+
+    }
+
     // Delete an application
     public void deleteApplication(Long applicationId) {
         if (!applicationRepository.existsById(applicationId)) {

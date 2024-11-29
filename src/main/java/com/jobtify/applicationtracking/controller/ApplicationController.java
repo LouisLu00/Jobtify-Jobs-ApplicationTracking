@@ -55,6 +55,16 @@ public class ApplicationController {
         return ResponseEntity.ok(applications);
     }
 
+    @Operation(summary = "Get applications by application ID")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved application"),
+    })
+    @GetMapping("/applications/{applicationId}")
+    public ResponseEntity<List<Application>> getApplicationByApplicationId(@PathVariable Long applicationId) {
+        List<Application> applications = applicationService.getApplicationByApplicationId(applicationId);
+        return ResponseEntity.ok(applications);
+    }
+
     @Operation(summary = "Create a new application")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Application created successfully"),
