@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -29,8 +30,8 @@ public class ValidationService {
         String userUrl = userServiceUrl + "/" + userId + "/exists";
         try {
             restTemplate.getForObject(userUrl, Boolean.class);
-        } catch (HttpClientErrorException e) {
-            handleNotFoundOrServerError(e, "User");
+        } catch (Exception e) {
+            handleHttpClientError(e, "User");
         }
     }
 
@@ -38,17 +39,26 @@ public class ValidationService {
         String jobUrl = jobServiceUrl + "/" + jobId;
         try {
             restTemplate.getForObject(jobUrl, Object.class);
-        } catch (HttpClientErrorException e) {
-            handleNotFoundOrServerError(e, "Job");
+        } catch (Exception e) {
+            handleHttpClientError(e, "Job");
         }
     }
 
-    private void handleNotFoundOrServerError(HttpClientErrorException e, String entityType) {
-        if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, entityType + " not found");
-        } else if (e.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, entityType + " server error");
+    private void handleHttpClientError(Exception e, String entityType) {
+        if (e instanceof HttpClientErrorException httpException) {
+            if (httpException.getStatusCode() == HttpStatus.NOT_FOUND) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, entityType + " not found");
+            } else if (httpException.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, entityType + " server error");
+            }
+        } else if (e instanceof ResourceAccessException) {
+            if (e.getCause() instanceof java.net.SocketTimeoutException) {
+                throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, entityType + " service timeout", e);
+            } else {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, entityType + " service unavailable", e);
+            }
         }
-        throw new RuntimeException("Error validating " + entityType + " ID");
+
+        throw new RuntimeException("Unexpected error validating " + entityType + " ID", e);
     }
 }

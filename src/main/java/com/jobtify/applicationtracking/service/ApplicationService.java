@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author Ziyang Su
@@ -21,6 +22,10 @@ public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
     private final WebClient.Builder webClientBuilder;
+
+    private static final Set<String> VALID_STATUSES = Set.of(
+            "saved", "applied", "withdraw", "offered", "rejected", "interviewing", "archived", "screening"
+    );
 
     @Value("${job.service.url}")
     private String jobServiceUrl;
@@ -34,6 +39,11 @@ public class ApplicationService {
 
     // POST: Create new application
     public Application createApplication(Long userId, Long jobId, Application application) {
+        if (!VALID_STATUSES.contains(application.getApplicationStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid application status: " + application.getApplicationStatus());
+        }
+
         application.setUserId(userId);
         application.setJobId(jobId);
 
@@ -44,6 +54,11 @@ public class ApplicationService {
 
     // PUT: update application
     public Application updateApplication(Long applicationId, String status, String notes, LocalDateTime timeOfApplication) {
+        if (!VALID_STATUSES.contains(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid application status: " + status);
+        }
+
         Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
         if (status != null) application.setApplicationStatus(status);
