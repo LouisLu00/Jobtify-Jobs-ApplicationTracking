@@ -101,6 +101,19 @@ Delete a specific application using its unique application ID.
 
 ---
 
+---
+
+### 7. Get User's application statistics by user ID
+**URL:** `/api/application/user/{userId}/statistic`  
+**Method:** `GET`
+
+**Description:**  
+Retrieve all applications for a specific user. Group applications by status and month
+
+**Response Codes:**
+- `200 OK` - Successfully retrieved applications.
+- `404 Not Found` - Job not found.
+
 ## Notes
 1. **Validation:**
   - The `ValidationService` ensures that the user and job IDs exist before processing requests.

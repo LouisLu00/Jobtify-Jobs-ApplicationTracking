@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Ziyang Su
@@ -63,6 +64,18 @@ public class ApplicationController {
     public ResponseEntity<List<Application>> getApplicationByApplicationId(@PathVariable Long applicationId) {
         List<Application> applications = applicationService.getApplicationByApplicationId(applicationId);
         return ResponseEntity.ok(applications);
+    }
+
+    @Operation(summary = "Get applications grouped by status and month for a specific user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved grouped applications"),
+            @ApiResponse(responseCode = "404", description = "No applications found for the given user ID")
+    })
+    @GetMapping("/user/{userId}/statistic")
+    public ResponseEntity<Map<String, Object>> getApplicationsGroupedByStatusAndMonth(
+            @PathVariable Long userId) {
+        Map<String, Object> groupedApplications = applicationService.getApplicationsGroupedByStatusAndMonth(userId);
+        return ResponseEntity.ok(groupedApplications);
     }
 
     @Operation(summary = "Create a new application")

@@ -10,9 +10,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @author Ziyang Su
@@ -114,6 +116,33 @@ public class ApplicationService {
         }
         return applications;
     }
+
+    // GET: get statistics by user_id
+    public Map<String, Object> getApplicationsGroupedByStatusAndMonth(Long userId) {
+        List<Application> applications = applicationRepository.findByUserId(userId);
+        if (applications.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No applications found for user ID: " + userId);
+        }
+
+        Map<String, Long> statusCounts = applications.stream()
+                .collect(Collectors.groupingBy(Application::getApplicationStatus, Collectors.counting()));
+
+        Map<Integer, Map<String, Long>> dateCounts = applications.stream()
+                .filter(app -> app.getTimeOfApplication() != null)
+                .collect(Collectors.groupingBy(
+                        app -> app.getTimeOfApplication().getYear(),
+                        Collectors.groupingBy(
+                                app -> app.getTimeOfApplication().getMonth().name(),
+                                Collectors.counting()
+                        )
+                ));
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("status", statusCounts);
+        result.put("date", dateCounts);
+        return result;
+    }
+
 
     // Delete an application
     public void deleteApplication(Long applicationId) {
