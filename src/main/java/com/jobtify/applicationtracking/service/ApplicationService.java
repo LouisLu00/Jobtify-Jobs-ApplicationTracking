@@ -4,12 +4,14 @@ import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.repository.ApplicationRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -23,6 +25,9 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final WebClient.Builder webClientBuilder;
 
+    private final RestTemplate restTemplate;
+
+
     private static final Set<String> VALID_STATUSES = Set.of(
             "saved", "applied", "withdraw", "offered", "rejected", "interviewing", "archived", "screening"
     );
@@ -30,11 +35,16 @@ public class ApplicationService {
     @Value("${job.service.url}")
     private String jobServiceUrl;
 
+    @Value("@{MQ.service.url}")
+    private String mqServiceUrl;
+
     // Insert by Constructor
     public ApplicationService(ApplicationRepository applicationRepository,
-                              WebClient.Builder webClientBuilder) {
+                              WebClient.Builder webClientBuilder,
+                              RestTemplate restTemplate) {
         this.applicationRepository = applicationRepository;
         this.webClientBuilder = webClientBuilder;
+        this.restTemplate = restTemplate;
     }
 
     // POST: Create new application
@@ -49,6 +59,11 @@ public class ApplicationService {
 
         Application createdApplication = applicationRepository.save(application);
         incrementJobApplicantCountAsync(jobId);
+
+        // Send to message Queue
+        String queueServiceUrl = mqServiceUrl+"/publish";
+        String messageBody = String.format("{\"userId\":\"%s\", \"jobId\":\"%s\"}", userId, jobId);
+        restTemplate.postForObject(queueServiceUrl, Map.of("messageBody", messageBody), String.class);
         return createdApplication;
     }
 
