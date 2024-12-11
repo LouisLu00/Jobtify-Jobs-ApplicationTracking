@@ -2,7 +2,7 @@ package com.jobtify.applicationtracking.service;
 
 import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.repository.ApplicationRepository;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -11,8 +11,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import org.json.JSONObject;
 
 /**
  * @author Ziyang Su
@@ -35,7 +35,7 @@ public class ApplicationService {
     @Value("${job.service.url}")
     private String jobServiceUrl;
 
-    @Value("@{MQ.service.url}")
+    @Value("${MQ.service.url}")
     private String mqServiceUrl;
 
     // Insert by Constructor
@@ -60,10 +60,39 @@ public class ApplicationService {
         Application createdApplication = applicationRepository.save(application);
         incrementJobApplicantCountAsync(jobId);
 
-        // Send to message Queue
-        String queueServiceUrl = mqServiceUrl+"/publish";
-        String messageBody = String.format("{\"userId\":\"%s\", \"jobId\":\"%s\"}", userId, jobId);
-        restTemplate.postForObject(queueServiceUrl, Map.of("messageBody", messageBody), String.class);
+        JSONObject messageBodyJson = new JSONObject();
+        messageBodyJson.put("jobId", jobId);
+        messageBodyJson.put("userId", userId);
+
+        String messageBody = messageBodyJson.toString(); // Convert to string for messageBody
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> requestEntity = new HttpEntity<>(messageBody.toString(), headers);
+
+
+        String queueServiceUrl = mqServiceUrl +"/publish";
+        try {
+            ResponseEntity<String> responseEntity = restTemplate.exchange(
+                    queueServiceUrl,
+                    HttpMethod.POST,
+                    requestEntity,
+                    String.class
+            );
+
+            if (responseEntity.getStatusCode() == HttpStatus.OK) {
+                String result = responseEntity.getBody();
+                System.out.println("Response from queue service: " + result);
+            } else if (responseEntity.getStatusCode() == HttpStatus.BAD_REQUEST) {
+                System.err.println("Validation error: " + responseEntity.getBody());
+            } else {
+                System.err.println("Failed to send message. HTTP Status: " + responseEntity.getStatusCode());
+            }
+        } catch (Exception e) {
+            System.err.println("Error while sending message: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        // Continue with application processing
         return createdApplication;
     }
 
