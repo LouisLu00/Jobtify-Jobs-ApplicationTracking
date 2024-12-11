@@ -1,7 +1,9 @@
 package com.jobtify.applicationtracking.service;
 
+import com.jobtify.applicationtracking.event.ApplicationCreatedEvent;
 import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.repository.ApplicationRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -13,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Ziyang Su
@@ -24,9 +27,8 @@ public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
     private final WebClient.Builder webClientBuilder;
-
     private final RestTemplate restTemplate;
-
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final Set<String> VALID_STATUSES = Set.of(
             "saved", "applied", "withdraw", "offered", "rejected", "interviewing", "archived", "screening"
@@ -35,16 +37,17 @@ public class ApplicationService {
     @Value("${job.service.url}")
     private String jobServiceUrl;
 
-    @Value("@{MQ.service.url}")
+    @Value("${MQ.service.url}")
     private String mqServiceUrl;
 
     // Insert by Constructor
     public ApplicationService(ApplicationRepository applicationRepository,
                               WebClient.Builder webClientBuilder,
-                              RestTemplate restTemplate) {
+                              RestTemplate restTemplate, ApplicationEventPublisher eventPublisher) {
         this.applicationRepository = applicationRepository;
         this.webClientBuilder = webClientBuilder;
         this.restTemplate = restTemplate;
+        this.eventPublisher = eventPublisher;
     }
 
     // POST: Create new application
@@ -56,14 +59,12 @@ public class ApplicationService {
 
         application.setUserId(userId);
         application.setJobId(jobId);
-
         Application createdApplication = applicationRepository.save(application);
         incrementJobApplicantCountAsync(jobId);
 
-        // Send to message Queue
-        String queueServiceUrl = mqServiceUrl+"/publish";
-        String messageBody = String.format("{\"userId\":\"%s\", \"jobId\":\"%s\"}", userId, jobId);
-        restTemplate.postForObject(queueServiceUrl, Map.of("messageBody", messageBody), String.class);
+        sendMessageToQueue(userId, jobId);
+        eventPublisher.publishEvent(new ApplicationCreatedEvent(this, createdApplication));
+
         return createdApplication;
     }
 
@@ -143,5 +144,18 @@ public class ApplicationService {
                     System.err.println("Error incrementing applicant count for Job ID: " + jobId + ". Error: " + ex.getMessage());
                     return null;
                 });
+    }
+
+    private void sendMessageToQueue(Long userId, Long jobId) {
+        CompletableFuture.runAsync(() -> {
+            String queueServiceUrl = mqServiceUrl + "/publish";
+            String messageBody = String.format("{\"userId\":\"%s\", \"jobId\":\"%s\"}", userId, jobId);
+            try {
+                restTemplate.postForEntity(queueServiceUrl, Map.of("messageBody", messageBody), String.class);
+                System.out.println("Message sent to queue for User ID: " + userId + ", Job ID: " + jobId);
+            } catch (Exception e) {
+                System.err.println("Failed to send message to queue for User ID: " + userId + ", Job ID: " + jobId);
+            }
+        });
     }
 }
