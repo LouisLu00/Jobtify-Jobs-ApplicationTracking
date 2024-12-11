@@ -68,7 +68,9 @@ public class ApplicationController {
     @Operation(summary = "Create a new application")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Application created successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid application status"),
             @ApiResponse(responseCode = "404", description = "User or job not found"),
+            @ApiResponse(responseCode = "408", description = "Request to user or job service timed out"),
             @ApiResponse(responseCode = "503", description = "User or job server unavailable")
     })
     @PostMapping("/{userId}/{jobId}/applications")
@@ -86,6 +88,7 @@ public class ApplicationController {
     @Operation(summary = "Update an existing application")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Application updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid application status"),
             @ApiResponse(responseCode = "404", description = "Application not found")
     })
     @PutMapping("/applications/{applicationId}")
