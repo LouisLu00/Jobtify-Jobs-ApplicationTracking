@@ -10,9 +10,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import org.json.JSONObject;
+import java.util.stream.Collectors;
 
 /**
  * @author Ziyang Su
@@ -113,25 +116,63 @@ public class ApplicationService {
 
     // GET: get all application by user_id
     public List<Application> getApplicationsByUserId(Long userId, String status) {
-        if (status != null) {
-            return applicationRepository.findByUserIdAndApplicationStatus(userId, status);
+        List<Application> applications = (status != null)
+                ? applicationRepository.findByUserIdAndApplicationStatus(userId, status)
+                : applicationRepository.findByUserId(userId);
+
+        if (applications.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No applications found for user ID: " + userId);
         }
-        return applicationRepository.findByUserId(userId);
+        return applications;
     }
 
     // GET: get all application by job_id
     public List<Application> getApplicationsByJobId(Long jobId, String status) {
-        if (status != null) {
-            return applicationRepository.findByJobIdAndApplicationStatus(jobId, status);
+        List<Application> applications = (status != null)
+                ? applicationRepository.findByJobIdAndApplicationStatus(jobId, status)
+                : applicationRepository.findByJobId(jobId);
+
+        if (applications.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No applications found for job ID: " + jobId);
         }
-        return applicationRepository.findByJobId(jobId);
+        return applications;
     }
 
     // GET: get application by application_id
     public List<Application> getApplicationByApplicationId(Long applicationId) {
-        return applicationRepository.findByApplicationId(applicationId);
-
+        List<Application> applications = applicationRepository.findByApplicationId(applicationId);
+        if (applications.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No application found with ID: " + applicationId);
+        }
+        return applications;
     }
+
+    // GET: get statistics by user_id
+    public Map<String, Object> getApplicationsGroupedByStatusAndMonth(Long userId) {
+        List<Application> applications = applicationRepository.findByUserId(userId);
+        if (applications.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No applications found for user ID: " + userId);
+        }
+
+        Map<String, Long> statusCounts = applications.stream()
+                .collect(Collectors.groupingBy(Application::getApplicationStatus, Collectors.counting()));
+
+        Map<Integer, Map<String, Long>> dateCounts = applications.stream()
+                .filter(app -> app.getTimeOfApplication() != null)
+                .collect(Collectors.groupingBy(
+                        app -> app.getTimeOfApplication().getYear(),
+                        Collectors.groupingBy(
+                                app -> app.getTimeOfApplication().getMonth().name(),
+                                Collectors.counting()
+                        )
+                ));
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("status", statusCounts);
+        result.put("date", dateCounts);
+        return result;
+    }
+
 
     // Delete an application
     public void deleteApplication(Long applicationId) {
