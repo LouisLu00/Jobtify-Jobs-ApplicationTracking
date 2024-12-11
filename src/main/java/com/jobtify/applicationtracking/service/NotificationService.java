@@ -1,6 +1,7 @@
 package com.jobtify.applicationtracking.service;
 
 import com.jobtify.applicationtracking.event.ApplicationCreatedEvent;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -16,6 +17,9 @@ import java.util.Map;
 public class NotificationService {
     private final RestTemplate restTemplate;
 
+    @Value("${MQ.send.url}")
+    private String sendUrl;
+
     public NotificationService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
@@ -25,7 +29,7 @@ public class NotificationService {
         Long userId = event.getApplication().getUserId();
         Long jobId = event.getApplication().getJobId();
 
-        String notificationServiceUrl = "http://ec2-3-93-168-43.compute-1.amazonaws.com:8000/api/notifications/send";
+        String notificationServiceUrl = sendUrl + "/send";
         String notificationBody = String.format("User %s applied for Job %s", userId, jobId);
 
         try {
