@@ -1,0 +1,12 @@
+type Query {
+    applicationsByUser(userId: ID!): [Application!]!
+}
+
+type Application {
+    applicationId: ID!
+    userId: ID!
+    jobId: ID!
+    timeOfApplication: String
+    applicationStatus: String!
+    notes: String
+}

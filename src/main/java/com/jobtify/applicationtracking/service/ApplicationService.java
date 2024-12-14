@@ -70,7 +70,7 @@ public class ApplicationService {
         String messageBody = messageBodyJson.toString(); // Convert to string for messageBody
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> requestEntity = new HttpEntity<>(messageBody.toString(), headers);
+        HttpEntity<String> requestEntity = new HttpEntity<>(messageBody, headers);
 
 
         String queueServiceUrl = mqServiceUrl +"/publish";
