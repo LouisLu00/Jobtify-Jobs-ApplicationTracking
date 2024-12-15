@@ -98,6 +98,26 @@ public class ApplicationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdApplication);
     }
 
+    @Operation(summary = "Create a new application asynchronously")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "202", description = "Application creation accepted and processing asynchronously"),
+            @ApiResponse(responseCode = "400", description = "Invalid application status"),
+            @ApiResponse(responseCode = "404", description = "User or job not found"),
+            @ApiResponse(responseCode = "408", description = "Request to user or job service timed out"),
+            @ApiResponse(responseCode = "503", description = "User or job server unavailable")
+    })
+    @PostMapping("/{userId}/{jobId}/applications/async")
+    public ResponseEntity<Void> createApplicationAsync(
+            @PathVariable Long userId,
+            @PathVariable Long jobId,
+            @Valid @RequestBody Application application) {
+        validationService.validateUser(userId);
+        validationService.validateJob(jobId);
+
+        applicationService.createApplicationAsync(userId, jobId, application);
+        return ResponseEntity.accepted().build();
+    }
+
     @Operation(summary = "Update an existing application")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Application updated successfully"),

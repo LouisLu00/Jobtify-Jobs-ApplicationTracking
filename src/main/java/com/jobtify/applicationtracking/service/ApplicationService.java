@@ -5,15 +5,13 @@ import com.jobtify.applicationtracking.repository.ApplicationRepository;
 import com.jobtify.applicationtracking.workflow.CreateApplicationJob;
 import org.quartz.*;
 import org.springframework.http.*;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -25,18 +23,19 @@ import java.util.stream.Collectors;
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
-
     private final Scheduler scheduler;
+    private final TaskScheduler taskScheduler;
 
     private static final Set<String> VALID_STATUSES = Set.of(
             "saved", "applied", "withdraw", "offered", "rejected", "interviewing", "archived", "screening"
     );
 
     // Insert by Constructor
-    public ApplicationService(ApplicationRepository applicationRepository, Scheduler scheduler) {
+    public ApplicationService(ApplicationRepository applicationRepository,
+                              Scheduler scheduler, TaskScheduler taskScheduler) {
         this.applicationRepository = applicationRepository;
-
         this.scheduler = scheduler;
+        this.taskScheduler = taskScheduler;
     }
 
     // POST: Create new application
@@ -54,6 +53,29 @@ public class ApplicationService {
 
         // Continue with application processing
         return createdApplication;
+    }
+
+    public void createApplicationAsync(Long userId, Long jobId, Application application) {
+        Date executionTime = new Date(System.currentTimeMillis() + 15 * 1000);
+
+        taskScheduler.schedule(() -> {
+            try {
+                if (!VALID_STATUSES.contains(application.getApplicationStatus())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Invalid application status: " + application.getApplicationStatus());
+                }
+
+                application.setUserId(userId);
+                application.setJobId(jobId);
+                applicationRepository.save(application);
+
+                scheduleCreateApplicationJob(userId, jobId);
+                System.out.println("Async Application Created. User ID: " + userId + ", Job ID: " + jobId);
+            } catch (Exception e) {
+                System.err.println("Create Failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }, executionTime);
     }
 
     // PUT: update application
