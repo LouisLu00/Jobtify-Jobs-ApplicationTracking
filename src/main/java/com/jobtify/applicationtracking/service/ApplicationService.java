@@ -2,11 +2,11 @@ package com.jobtify.applicationtracking.service;
 
 import com.jobtify.applicationtracking.model.Application;
 import com.jobtify.applicationtracking.repository.ApplicationRepository;
+import com.jobtify.applicationtracking.workflow.CreateApplicationJob;
+import org.quartz.*;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -14,7 +14,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.Set;
-import org.json.JSONObject;
 import java.util.stream.Collectors;
 
 /**
@@ -26,28 +25,18 @@ import java.util.stream.Collectors;
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
-    private final WebClient.Builder webClientBuilder;
 
-    private final RestTemplate restTemplate;
-
+    private final Scheduler scheduler;
 
     private static final Set<String> VALID_STATUSES = Set.of(
             "saved", "applied", "withdraw", "offered", "rejected", "interviewing", "archived", "screening"
     );
 
-    @Value("${job.service.url}")
-    private String jobServiceUrl;
-
-    @Value("${MQ.service.url}")
-    private String mqServiceUrl;
-
     // Insert by Constructor
-    public ApplicationService(ApplicationRepository applicationRepository,
-                              WebClient.Builder webClientBuilder,
-                              RestTemplate restTemplate) {
+    public ApplicationService(ApplicationRepository applicationRepository, Scheduler scheduler) {
         this.applicationRepository = applicationRepository;
-        this.webClientBuilder = webClientBuilder;
-        this.restTemplate = restTemplate;
+
+        this.scheduler = scheduler;
     }
 
     // POST: Create new application
@@ -61,39 +50,7 @@ public class ApplicationService {
         application.setJobId(jobId);
 
         Application createdApplication = applicationRepository.save(application);
-        incrementJobApplicantCountAsync(jobId);
-
-        JSONObject messageBodyJson = new JSONObject();
-        messageBodyJson.put("jobId", jobId);
-        messageBodyJson.put("userId", userId);
-
-        String messageBody = messageBodyJson.toString(); // Convert to string for messageBody
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> requestEntity = new HttpEntity<>(messageBody, headers);
-
-
-        String queueServiceUrl = mqServiceUrl +"/publish";
-        try {
-            ResponseEntity<String> responseEntity = restTemplate.exchange(
-                    queueServiceUrl,
-                    HttpMethod.POST,
-                    requestEntity,
-                    String.class
-            );
-
-            if (responseEntity.getStatusCode() == HttpStatus.OK) {
-                String result = responseEntity.getBody();
-                System.out.println("Response from queue service: " + result);
-            } else if (responseEntity.getStatusCode() == HttpStatus.BAD_REQUEST) {
-                System.err.println("Validation error: " + responseEntity.getBody());
-            } else {
-                System.err.println("Failed to send message. HTTP Status: " + responseEntity.getStatusCode());
-            }
-        } catch (Exception e) {
-            System.err.println("Error while sending message: " + e.getMessage());
-            e.printStackTrace();
-        }
+        scheduleCreateApplicationJob(userId, jobId);
 
         // Continue with application processing
         return createdApplication;
@@ -173,7 +130,6 @@ public class ApplicationService {
         return result;
     }
 
-
     // Delete an application
     public void deleteApplication(Long applicationId) {
         if (!applicationRepository.existsById(applicationId)) {
@@ -182,25 +138,33 @@ public class ApplicationService {
         applicationRepository.deleteById(applicationId);
     }
 
-    private void incrementJobApplicantCountAsync(Long jobId) {
-        String jobUrl = jobServiceUrl + "/async/update/" + jobId;
+    private void scheduleCreateApplicationJob(Long userId, Long jobId) {
+        try {
+            String jobIdentity = "createApplicationJob_" + userId + "_" + jobId + "_" + System.currentTimeMillis();
+            String triggerIdentity = "trigger_createApplication_" + userId + "_" + jobId + "_" + System.currentTimeMillis();
 
-        webClientBuilder.build()
-                .post()
-                .uri(jobUrl)
-                .retrieve()
-                .toBodilessEntity()
-                .toFuture()
-                .thenAccept(response -> {
-                    if (response.getStatusCode().is2xxSuccessful()) {
-                        System.out.println("Applicant count increment accepted for Job ID: " + jobId);
-                    } else {
-                        System.out.println("Failed to increment applicant count for Job ID: " + jobId);
-                    }
-                })
-                .exceptionally(ex -> {
-                    System.err.println("Error incrementing applicant count for Job ID: " + jobId + ". Error: " + ex.getMessage());
-                    return null;
-                });
+            JobKey jobKey = new JobKey(jobIdentity);
+            TriggerKey triggerKey = new TriggerKey(triggerIdentity);
+
+            JobDetail jobDetail = JobBuilder.newJob(CreateApplicationJob.class)
+                    .withIdentity(jobKey)
+                    .usingJobData("userId", userId)
+                    .usingJobData("jobId", jobId)
+                    .storeDurably()
+                    .build();
+
+            Trigger trigger = TriggerBuilder.newTrigger()
+                    .forJob(jobDetail)
+                    .withIdentity(triggerKey)
+                    .startNow()
+                    .build();
+
+            scheduler.scheduleJob(jobDetail, trigger);
+            System.out.println("Job scheduled successfully: " + jobKey);
+
+        } catch (SchedulerException e) {
+            e.printStackTrace();
+            System.err.println("Failed to schedule Quartz job: " + e.getMessage());
+        }
     }
 }
