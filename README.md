@@ -66,10 +66,35 @@ Create a new application for a user and job. User and job must exist. The applic
 - `404 Not Found` - User or job not found.
 - `408 Request Timeout` - Request to user or job service timed out.
 - `503 Service Unavailable` - User or job server unavailable.
+---
+
+### 5. Create a New Application Asynchronously
+**URL:** `/api/application/{userId}/{jobId}/{hours}/applications/async`  
+**Method:** `POST`
+
+**Request Body:**
+```json
+{
+  "timeOfApplication": "2024-10-28T10:30:00",
+  "applicationStatus": "applied",
+  "notes": "This is a new application"
+}
+```
+
+**Description:**  
+Create a new application for a user, job, and delayed hours. User, Job and Hours must exist. The application status **must be valid**.
+
+**Response Codes:**
+- `202 Accpet` - Application asynchronously creation schedule has made successfully.
+- `400 Bad Request` - Invalid application status.
+- `404 Not Found` - User or job not found.
+- `408 Request Timeout` - Request to user or job service timed out.
+- `503 Service Unavailable` - User or job server unavailable.
+
 
 ---
 
-### 5. Update an Existing Application
+### 6. Update an Existing Application
 **URL:** `/api/application/applications/{applicationId}`  
 **Method:** `PUT`
 
@@ -88,7 +113,7 @@ Update the status, notes, or time of an existing application.
 
 ---
 
-### 6. Delete an Application by ID
+### 7. Delete an Application by ID
 **URL:** `/api/application/applications/{applicationId}`  
 **Method:** `DELETE`
 
@@ -103,7 +128,7 @@ Delete a specific application using its unique application ID.
 
 ---
 
-### 7. Get User's application statistics by user ID
+### 8. Get User's application statistics by user ID
 **URL:** `/api/application/user/{userId}/statistic`  
 **Method:** `GET`
 

@@ -55,16 +55,15 @@ public class ApplicationService {
         return createdApplication;
     }
 
-    public void createApplicationAsync(Long userId, Long jobId, Application application) {
-        Date executionTime = new Date(System.currentTimeMillis() + 15 * 1000);
+    public void createApplicationAsync(Long userId, Long jobId, Integer hours, Application application) {
+        if (!VALID_STATUSES.contains(application.getApplicationStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid application status: " + application.getApplicationStatus());
+        }
+        Date executionTime = new Date(System.currentTimeMillis() + hours * 3600 * 1000);
 
         taskScheduler.schedule(() -> {
             try {
-                if (!VALID_STATUSES.contains(application.getApplicationStatus())) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Invalid application status: " + application.getApplicationStatus());
-                }
-
                 application.setUserId(userId);
                 application.setJobId(jobId);
                 applicationRepository.save(application);

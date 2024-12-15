@@ -106,15 +106,16 @@ public class ApplicationController {
             @ApiResponse(responseCode = "408", description = "Request to user or job service timed out"),
             @ApiResponse(responseCode = "503", description = "User or job server unavailable")
     })
-    @PostMapping("/{userId}/{jobId}/applications/async")
+    @PostMapping("/{userId}/{jobId}/{hours}/applications/async")
     public ResponseEntity<Void> createApplicationAsync(
             @PathVariable Long userId,
             @PathVariable Long jobId,
+            @PathVariable Integer hours,
             @Valid @RequestBody Application application) {
         validationService.validateUser(userId);
         validationService.validateJob(jobId);
 
-        applicationService.createApplicationAsync(userId, jobId, application);
+        applicationService.createApplicationAsync(userId, jobId, hours, application);
         return ResponseEntity.accepted().build();
     }
 
