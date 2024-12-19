@@ -27,9 +27,9 @@ public class ValidationService {
     }
 
     public void validateUser(Long userId) {
-        String userUrl = userServiceUrl + "/" + userId + "/exists";
+        String userUrl = userServiceUrl + "/" + userId;
         try {
-            restTemplate.getForObject(userUrl, Boolean.class);
+            restTemplate.getForObject(userUrl, Object.class);
         } catch (Exception e) {
             handleHttpClientError(e, "User");
         }
